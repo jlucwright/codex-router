@@ -4667,6 +4667,13 @@ private struct MenuBarIconView: View {
 private struct StatusItemLabel: View {
   @ObservedObject var store: RouterStore
   @State private var pulsing = false
+  /// Hidden preference: when false, the status item never shows live activity
+  /// (state tint, activity badge, or "generating" text) and sticks to the
+  /// provider name + usage. For setups where another menu-bar tool already
+  /// shows agent activity, so the same signal is not paid for twice. The
+  /// popover's Status tab is unaffected.
+  ///   defaults write io.github.codex-router.tray ModelRouterTray.statusActivityEnabled -bool NO
+  @AppStorage("ModelRouterTray.statusActivityEnabled") private var showActivity = true
 
   var body: some View {
     if store.menuBarDisplayMode == .iconOnly {
@@ -4674,7 +4681,7 @@ private struct StatusItemLabel: View {
         MenuBarIconView(store: store, size: 14)
           .scaleEffect(pulsing ? 1.4 : 1)
           .animation(.easeOut(duration: 0.45), value: pulsing)
-        if MenuBarLayoutMetrics.showsActivityBadge(
+        if showActivity, MenuBarLayoutMetrics.showsActivityBadge(
           iconStyle: store.menuBarIconStyle,
           isIdle: store.activityState == .idle
         ) {
@@ -4698,7 +4705,7 @@ private struct StatusItemLabel: View {
       HStack(spacing: 5) {
         if store.menuBarIconStyle == .indicator {
           Circle()
-            .fill(store.activityState.tint)
+            .fill(showActivity ? store.activityState.tint : RouterActivityState.idle.tint)
             .frame(width: 6, height: 6)
             .scaleEffect(pulsing ? 2.1 : 1)
             .opacity(pulsing ? 0.55 : 1)
@@ -4709,12 +4716,12 @@ private struct StatusItemLabel: View {
             .animation(.easeOut(duration: 0.45), value: pulsing)
         }
         if store.menuBarShowModelName {
-          Text(store.hasConcurrentActivity ? store.activitySummaryLabel : store.selectedUsageProvider.shortName)
+          Text(showActivity && store.hasConcurrentActivity ? store.activitySummaryLabel : store.selectedUsageProvider.shortName)
             .font(.system(size: 11, weight: .medium, design: .rounded))
             .lineLimit(1)
             .truncationMode(.tail)
         }
-        if store.hasConcurrentActivity {
+        if showActivity && store.hasConcurrentActivity {
           Text(store.compactActivityProvidersLabel)
             .font(.system(size: 10, weight: .medium, design: .rounded))
             .foregroundStyle(routerMuted)
