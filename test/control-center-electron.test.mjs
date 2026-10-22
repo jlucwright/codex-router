@@ -364,6 +364,17 @@ async function waitForProcessExit(pid, timeoutMs = 4_000) {
       if (error?.code === "ESRCH") return;
       throw error;
     }
+    if (process.platform === "linux") {
+      try {
+        // Minimal container init processes may leave an exited child unreaped.
+        // A zombie cannot execute; kill(pid, 0) alone still reports its PID.
+        const status = await readFile(`/proc/${pid}/stat`, "utf8");
+        if (/^Z(?:\s|$)/.test(status.slice(status.lastIndexOf(")") + 2))) return;
+      } catch (error) {
+        if (error?.code === "ENOENT") return;
+        throw error;
+      }
+    }
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   assert.fail(`descendant process ${pid} survived command termination`);
